@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+# Kaden Jessee)
+# Lab 5 - Database Loader
+# CS 3030 - Scripting Languages
+import sqlite3
+import csv
+import sys
+
+def create_database(input_file, output_file):
+    try:
+        with open(input_file, 'r') as csvfile:
+            #database connection
+            conn = sqlite3.connect(output_file)
+            curs = conn.cursor()
+
+            #drop table if exists
+            curs.execute('''DROP TABLE IF EXISTS courses''')
+            curs.execute('''DROP TABLE IF EXISTS people''')
+
+            #create tables
+            curs.execute('''CREATE TABLE courses 
+                            (id text, subjcode text, coursenumber text, termcode text)''')
+            curs.execute('''CREATE TABLE people
+                            (id text primary key unique, lastname text, firstname text,
+                            email text, major text, city text, state text, zip text)''')
+
+            #read csv data
+            csvreader = csv.reader(csvfile)
+            next(csvreader)
+
+            unique_people = set()
+
+            for row in csvreader:
+                #get data
+                wnumber, firstname, lastname, email, major, course, termcode, city, state, zip = row
+
+                #split course field
+                coursedata = course.split(" ")
+                subjcode = coursedata[0]
+                coursenumber = coursedata[1]
+
+                #check if person already exists
+                curs.execute('''SELECT id FROM people WHERE id = ?''', (wnumber,))
+                existing_person = curs.fetchone()
+
+                if existing_person is None:
+                    #insert people
+                    curs.execute('''INSERT INTO people (id, lastname, firstname, email, major, city, state, zip)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                                (wnumber, lastname, firstname, email, major, city, state, zip))
+
+                #insert courses
+                curs.execute('''INSERT INTO courses (id, subjcode, coursenumber, termcode)
+                                VALUES (?, ?, ?, ?)''',
+                                (wnumber, subjcode, coursenumber, termcode))
+
+            #commit
+            conn.commit()
+            conn.close()
+
+            print("Database created successfully.")
+
+    except Exception as e:
+        print("An error occurred:", str(e))
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: ./dbload INPUT OUTPUT")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+
+    create_database(input_file, output_file)
+
+
+sys.exit(0)
